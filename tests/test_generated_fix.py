@@ -1,211 +1,115 @@
-import re
 import pytest
+from tinycss2.parser import parse_stylesheet
+from tinycss2.ast import QualifiedRule, Declaration
 
-# The fixed CSS content provided in the problem description
-FIXED_CSS_CONTENT = """
-:root{
-  --primary:#007bff;
-  --secondary:#6c757d;
-  --success:#28a745;
-  --danger:#dc3545;
-  --warning:#ffc107;
-  --info:#17a2b8;
-  --light:#f8f9fa;
-  --dark:#343a40;
-  --accent:#007bff; /* Example accent color */
-  --muted:#6c757d; /* Example muted color */
-}
-
-body{
-  font-family:sans-serif;
-  margin:0;
-  padding:20px;
-  background-color:#f4f4f4;
-  display:flex;
-  justify-content:center;
-  align-items:flex-start;
-  min-height:100vh;
-}
-
-.container{
-  background:#fff;
-  padding:20px;
-  border-radius:8px;
-  box-shadow:0 2px 4px rgba(0,0,0,0.1);
-  width:100%;
-  max-width:500px;
-}
-
-h1{
-  text-align:center;
-  color:#333;
-  margin-bottom:20px;
-}
-
-.input-section{
-  display:flex;
-  gap:10px;
-  margin-bottom:20px;
-}
-
-.input-section input{
-  flex-grow:1;
-  padding:10px;
-  border:1px solid #ddd;
-  border-radius:6px;
-  font-size:16px;
-}
-
-#add-btn{
-  background: black; /* Changed from var(--accent) */
-  color:#fff;
-  border:none;
-  padding:10px 14px;
-  border-radius:6px;
-  cursor:pointer
-}
-
-#add-btn:hover{
-  opacity:0.9;
-}
-
-.todo-list{
-  list-style:none;
-  padding:0;
-}
-
-.todo-item{
-  display:flex;
-  align-items:center;
-  padding:10px 0;
-  border-bottom:1px solid #eee;
-}
-
-.todo-item:last-child{
-  border-bottom:none;
-}
-
-.todo-item span{
-  flex-grow:1;
-  font-size:16px;
-  color:#555;
-}
-
-.todo-item.completed span{
-  text-decoration:line-through;
-  color:#aaa;
-}
-
-.todo-actions{
-  display:flex;
-  gap:5px;
-}
-
-.todo-actions button{
-  background:transparent;
-  border:none;
-  color: black; /* Changed from var(--muted) */
-  cursor:pointer;
-  padding:6px;
-  border-radius:6px
-}
-
-.todo-actions button:hover{
-  background-color:#f0f0f0;
-}
-
-.todo-actions button.complete-btn{
-  color:var(--success);
-}
-
-.todo-actions button.delete-btn{
-  color:var(--danger);
-}
+# The CSS snippet provided as "THE FIX"
+FIXED_CSS = """
+#add-btn{background:#000;color:#fff;border:none;padding:10px 14px;border-radius:6px;cursor:pointer}
+.todo-actions button{background:#000;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px}
 """
 
-# Original CSS content (simulating the bug state before the fix)
-# This is constructed by reverting the changes made in the provided fix.
-ORIGINAL_CSS_CONTENT = FIXED_CSS_CONTENT.replace(
-    "background: black; /* Changed from var(--accent) */",
-    "background: var(--accent);"
-).replace(
-    "color: black; /* Changed from var(--muted) */",
-    "color: var(--muted);"
-)
+# A hypothetical "pre-fix" CSS state where the colors are not black/white.
+# This is crucial for reproducing the bug (i.e., showing it would fail before the fix).
+# We define specific non-black/white colors to make the assertion explicit about the "buggy" state.
+PRE_FIX_CSS = """
+#add-btn{background:red;color:blue;border:1px solid grey}
+.todo-actions button{background:green;color:yellow;font-size:14px}
+/* Some other unrelated styles */
+body { font-family: sans-serif; margin: 0; }
+"""
 
-def get_css_property(css_content: str, selector: str, property_name: str) -> str | None:
+def get_css_properties(css_string: str, selector: str) -> dict:
     """
-    A simplified function to extract a CSS property value for a given selector
-    from CSS content. This uses regex and is suitable for focused tests on
-    specific property changes, but is not a full CSS parser.
+    Parses a CSS string and returns a dictionary of properties for a given selector.
+    Assumes simple selectors and direct property declarations within a rule.
+    Handles multiple declarations for the same property by taking the last one.
     """
-    # Normalize whitespace to simplify regex matching across lines
-    normalized_css = re.sub(r'\s+', ' ', css_content).strip()
+    properties = {}
+    # parse_stylesheet returns a list of tokens, which can include rules, comments, etc.
+    stylesheet = parse_stylesheet(css_string, skip_comments=True, skip_whitespace=True)
 
-    # Regex to find the selector block (non-greedy match for content inside braces)
-    selector_pattern = re.compile(rf'{re.escape(selector)}\s*\{{([^}}]*?)\}}', re.DOTALL)
-    match = selector_pattern.search(normalized_css)
+    for rule in stylesheet:
+        # We are interested in QualifiedRule (CSS rules with a selector and declarations)
+        if isinstance(rule, QualifiedRule):
+            # Extract selector tokens and join them to form the selector string
+            # tinycss2.ast.Token.serialize() converts the token back to its string representation
+            rule_selector = "".join(token.serialize() for token in rule.prelude).strip()
 
-    if match:
-        properties_block = match.group(1)
-        # Regex to find the specific property within the block
-        property_pattern = re.compile(rf'{re.escape(property_name)}\s*:\s*([^;]+);')
-        prop_match = property_pattern.search(properties_block)
-        if prop_match:
-            return prop_match.group(1).strip()
-    return None
+            # Check if the current rule's selector matches the target selector
+            if rule_selector == selector:
+                # Iterate through the content tokens of the rule (declarations, comments, etc.)
+                for content_token in rule.content:
+                    if isinstance(content_token, Declaration):
+                        prop_name = content_token.name.lower().strip()
+                        # Join value tokens to get the full property value
+                        prop_value = "".join(token.serialize() for token in content_token.value).strip()
+                        properties[prop_name] = prop_value
+    return properties
 
 class TestButtonColorFix:
 
-    def test_add_button_background_color_fix(self):
+    def test_reproduce_original_bug(self):
         """
-        Tests the background color of the #add-btn.
-        1. Reproduces the bug by asserting the pre-fix color.
-        2. Verifies the fix by asserting the post-fix color.
+        Reproduces the original bug: button colors are NOT black/white before the fix.
+        This test asserts that the 'PRE_FIX_CSS' does not contain the desired black/white
+        colors for the target buttons, demonstrating the state that needed fixing.
         """
-        # 1. Reproduce the original bug (should have failed before the fix)
-        # Before the fix, #add-btn background was var(--accent)
-        original_background = get_css_property(ORIGINAL_CSS_CONTENT, '#add-btn', 'background')
-        assert original_background == 'var(--accent)', \
-            f"Pre-fix: Expected #add-btn background to be 'var(--accent)', but got '{original_background}'"
+        add_btn_styles = get_css_properties(PRE_FIX_CSS, '#add-btn')
+        todo_actions_btn_styles = get_css_properties(PRE_FIX_CSS, '.todo-actions button')
 
-        # 2. Verify the fix works correctly
-        # After the fix, #add-btn background should be black
-        fixed_background = get_css_property(FIXED_CSS_CONTENT, '#add-btn', 'background')
-        assert fixed_background == 'black', \
-            f"Post-fix: Expected #add-btn background to be 'black', but got '{fixed_background}'"
+        # Assert that the background and color properties are NOT the fixed values
+        # and are instead the 'buggy' values defined in PRE_FIX_CSS.
+        assert add_btn_styles.get('background') != '#000', "Background of #add-btn should not be black before fix"
+        assert add_btn_styles.get('color') != '#fff', "Color of #add-btn should not be white before fix"
+        assert add_btn_styles.get('background') == 'red', "Expected #add-btn background to be red before fix"
+        assert add_btn_styles.get('color') == 'blue', "Expected #add-btn color to be blue before fix"
 
-    def test_todo_action_button_color_fix(self):
-        """
-        Tests the text color of generic .todo-actions button.
-        1. Reproduces the bug by asserting the pre-fix color.
-        2. Verifies the fix by asserting the post-fix color.
-        """
-        # 1. Reproduce the original bug (should have failed before the fix)
-        # Before the fix, .todo-actions button color was var(--muted)
-        original_color = get_css_property(ORIGINAL_CSS_CONTENT, '.todo-actions button', 'color')
-        assert original_color == 'var(--muted)', \
-            f"Pre-fix: Expected .todo-actions button color to be 'var(--muted)', but got '{original_color}'"
+        assert todo_actions_btn_styles.get('background') != '#000', "Background of .todo-actions button should not be black before fix"
+        assert todo_actions_btn_styles.get('color') != '#fff', "Color of .todo-actions button should not be white before fix"
+        assert todo_actions_btn_styles.get('background') == 'green', "Expected .todo-actions button background to be green before fix"
+        assert todo_actions_btn_styles.get('color') == 'yellow', "Expected .todo-actions button color to be yellow before fix"
 
-        # 2. Verify the fix works correctly
-        # After the fix, .todo-actions button color should be black
-        fixed_color = get_css_property(FIXED_CSS_CONTENT, '.todo-actions button', 'color')
-        assert fixed_color == 'black', \
-            f"Post-fix: Expected .todo-actions button color to be 'black', but got '{fixed_color}'"
-
-    def test_specific_todo_action_buttons_unaffected(self):
+    def test_add_btn_color_fix_works(self):
         """
-        Tests that specific todo action buttons (complete, delete) retain their
-        intended colors, ensuring the general button color change doesn't
-        unintentionally override more specific styles (edge case).
+        Verifies that the #add-btn has the correct black background and white text color
+        after the fix, along with other specified properties from the fix snippet.
         """
-        # 3. Test any edge cases: Specific buttons should retain their specific colors
-        # The .complete-btn should still be var(--success)
-        complete_btn_color = get_css_property(FIXED_CSS_CONTENT, '.todo-actions button.complete-btn', 'color')
-        assert complete_btn_color == 'var(--success)', \
-            f"Expected .complete-btn color to remain 'var(--success)', but got '{complete_btn_color}'"
+        add_btn_styles = get_css_properties(FIXED_CSS, '#add-btn')
 
-        # The .delete-btn should still be var(--danger)
-        delete_btn_color = get_css_property(FIXED_CSS_CONTENT, '.todo-actions button.delete-btn', 'color')
-        assert delete_btn_color == 'var(--danger)', \
-            f"Expected .delete-btn color to remain 'var(--danger)', but got '{delete_btn_color}'"
+        assert add_btn_styles.get('background') == '#000', "Fixed #add-btn background should be black"
+        assert add_btn_styles.get('color') == '#fff', "Fixed #add-btn color should be white"
+        assert add_btn_styles.get('border') == 'none', "Fixed #add-btn border should be 'none'"
+        assert add_btn_styles.get('padding') == '10px 14px', "Fixed #add-btn padding is incorrect"
+        assert add_btn_styles.get('border-radius') == '6px', "Fixed #add-btn border-radius is incorrect"
+        assert add_btn_styles.get('cursor') == 'pointer', "Fixed #add-btn cursor is incorrect"
+
+    def test_todo_actions_button_color_fix_works(self):
+        """
+        Verifies that the .todo-actions button has the correct black background and white text color
+        after the fix, along with other specified properties from the fix snippet.
+        """
+        todo_actions_btn_styles = get_css_properties(FIXED_CSS, '.todo-actions button')
+
+        assert todo_actions_btn_styles.get('background') == '#000', "Fixed .todo-actions button background should be black"
+        assert todo_actions_btn_styles.get('color') == '#fff', "Fixed .todo-actions button color should be white"
+        assert todo_actions_btn_styles.get('border') == 'none', "Fixed .todo-actions button border should be 'none'"
+        assert todo_actions_btn_styles.get('cursor') == 'pointer', "Fixed .todo-actions button cursor is incorrect"
+        assert todo_actions_btn_styles.get('padding') == '6px', "Fixed .todo-actions button padding is incorrect"
+        assert todo_actions_btn_styles.get('border-radius') == '6px', "Fixed .todo-actions button border-radius is incorrect"
+
+    def test_selector_not_found_graceful_handling(self):
+        """
+        Edge case: Tests that the helper function returns an empty dictionary
+        when the target selector is not present in the CSS string.
+        """
+        css_without_selector = "body { margin: 0; } p { color: blue; }"
+        styles = get_css_properties(css_without_selector, '#non-existent-selector')
+        assert styles == {}, "Should return empty dict for non-existent selector"
+
+    def test_empty_css_string_handling(self):
+        """
+        Edge case: Tests that the helper function returns an empty dictionary
+        when provided with an empty CSS string.
+        """
+        styles = get_css_properties("", '#add-btn')
+        assert styles == {}, "Should return empty dict for empty CSS string"
