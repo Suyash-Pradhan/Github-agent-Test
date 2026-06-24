@@ -11,5 +11,5 @@ h1{text-align:center;margin:0 0 16px}
 .todo-item .left{display:flex;gap:12px;align-items:center}
 .todo-item input[type=checkbox]{width:18px;height:18px}
 .todo-item.completed .text{opacity:0.6;text-decoration:line-through}
-.todo-actions button{background:transparent;border:none;color:var(--muted);cursor:pointer;padding:6px;border-radius:6px}
+.todo-actions button{background:transparent;border:none;color:#000000;cursor:pointer;padding:6px;border-radius:6px}
 .empty{color:var(--muted);text-align:center;padding:18px}
