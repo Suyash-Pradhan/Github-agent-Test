@@ -1,14 +1,32 @@
-# Github-agent-Test
+# React + TypeScript + Vite
 
-This workspace contains a small sample static TODO web app.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-Files added:
+Currently, two official plugins are available:
 
-- [Github-agent-Test/index.html](Github-agent-Test/index.html)
-- [Github-agent-Test/style.css](Github-agent-Test/style.css)
-- [Github-agent-Test/app.js](Github-agent-Test/app.js)
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-How to run:
+## React Compiler
 
-1. Open [Github-agent-Test/index.html](Github-agent-Test/index.html) in your browser.
-2. Add, toggle, and delete todos — they persist in `localStorage`.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the Oxlint configuration
+
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
+```
+
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
