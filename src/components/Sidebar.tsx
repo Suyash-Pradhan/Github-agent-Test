@@ -61,7 +61,7 @@ export default function Sidebar({
           <button
             key={tag}
             onClick={() => onTagFilterChange(tag)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-pill transition-colors cursor-pointer border shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors cursor-pointer border shrink-0 ${
               selectedTagFilter === tag
                 ? 'bg-primary text-on-primary border-primary'
                 : 'bg-surface-card text-muted hover:text-ink border-hairline'
