@@ -2,17 +2,15 @@
 
 export function formatCount(n: number): string {
   if (n >= 1_000_000) {
-    return (n / 1_000_000).toFixed(1) + "M";  // BUG: should be Math.floor
+    return parseFloat((n / 1_000_000).toFixed(1)) + "M";
   }
   if (n >= 1_000) {
-    return (n / 1_000).toFixed(1) + "k";       // BUG: should be Math.floor
+    return parseFloat((n / 1_000).toFixed(1)) + "k";
   }
   return n.toString();
 }
 
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  // BUG: uses local timezone offset, shows wrong date for non-UTC users
-  return `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
-  //                                                ↑ months are 0-indexed, not fixed
+  return `${date.getUTCFullYear()}-${date.getUTCMonth() + 1}-${date.getUTCDate()}`;
 }
