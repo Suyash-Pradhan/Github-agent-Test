@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useTransition } from 'react'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import NoteEditor from './components/NoteEditor'
+import {formatCount, formatDate} from "./utils/formState.ts"
 
 interface Note {
   id: string;
@@ -118,15 +119,15 @@ export default function App() {
   };
 
   // Format date helper
-  const formatDate = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // const formatDate = (isoString: string) => {
+  //   const date = new Date(isoString);
+  //   return date.toLocaleDateString(undefined, {
+  //     month: 'short',
+  //     day: 'numeric',
+  //     hour: '2-digit',
+  //     minute: '2-digit'
+  //   });
+  // };
 
   // Map tag names to color classes for pills
   const tagColorMap = {
@@ -151,8 +152,8 @@ export default function App() {
       <Header onCreateNote={handleCreateNote} />
 
       {/* Main Workspace split */}
-      <main className="flex-1 flex flex-col md:flex-row max-w-[1400px] w-full mx-auto">
-        
+      <main className="flex-1 flex flex-col md:flex-row max-w-350 w-full mx-auto">
+
         {/* Left Panel: Sidebar Component */}
         <Sidebar
           notes={filteredNotes}
@@ -177,12 +178,16 @@ export default function App() {
           tagColorMap={tagColorMap}
           tagLabelMap={tagLabelMap}
         />
+        
 
+        // somewhere in JSX:
+        <p>Followers: {formatCount(1500)}</p>       {/* shows 1.5k — correct-ish */}
+        <p>Joined: {formatDate("2026-06-28")}</p>   {/* shows 2024-2-15 — wrong month */}
       </main>
 
       {/* Dark Footer */}
       <footer className="bg-surface-dark text-on-dark-soft text-xs py-4 px-6 mt-auto border-t border-surface-dark-elevated">
-        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-350 mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
             <span className="font-bold text-on-dark">Noteworthy</span>
             <span className="text-muted-soft">|</span>
